@@ -1,0 +1,218 @@
+---
+title: "Final Project"
+author: "Rita Dang, Kathleen (Yuelin) He"
+date: "5/30/2020"
+output: html_document
+---
+
+## Data loading and library
+```{r}
+library(dplyr)
+library(stringr)
+westwood <- read.csv("westwood.csv")
+head(westwood) # make sure data is loaded
+```
+
+## Cleaning
+```{r}
+
+num_NA <- integer(0) # the number of empty values in each column
+for (c in 1:ncol(westwood)){
+  westwood[which(westwood[,c]=="N/A"|westwood[,c]==""),c] <- NA
+  if (!is.null(levels(westwood[,c]))){
+    levels(westwood[,c])[which(levels(westwood[,c])=="N/A"|levels(westwood[,c])=="")] <- NA
+  }
+  num_NA[c] <- sum(is.na(westwood[,c]))
+}
+
+
+westwood[,4] <- as.numeric(str_extract(westwood[,4],"\\d+"))/100 # percent
+
+westwood[,5] <- as.numeric(str_extract(westwood[,5],"\\d+"))/100 # percent
+
+westwood[,6] <- ifelse(westwood[,6]=="f",0,1) # logical vector: 0 for FALSE, 1 for TRUE
+
+# count for number of verifications
+temp <- integer(530)
+for (i in 1:length(westwood[,9])){
+  temp[i] <- length(str_extract_all(westwood[,9][i],",")[[1]])+1
+}
+westwood[,9] <- temp
+
+westwood[,10] <- ifelse(westwood[,10]=="f",0,1) # logical vector: 0 for FALSE, 1 for TRUE
+
+westwood[,11] <- ifelse(westwood[,11]=="f",0,1) # logical vector: 0 for FALSE, 1 for TRUE
+
+westwood[,21] <- ifelse(westwood[,21]=="f",0,1) # logical vector: 0 for FALSE, 1 for TRUE
+
+temp <- substr(westwood[,24],2,nchar(as.character(westwood[,24])))
+westwood[,24] <- as.numeric(str_replace_all(temp, ",", "")) # clean price
+
+# For host_since, convert into days till the last time this dataset being measured (08 May, 2020)
+westwood[,2] <- as.numeric(difftime(as.Date("2020-05-08"),as.Date(westwood[,2])))
+colnames(westwood)[2] <- "host_has_been"
+
+westwood <- westwood[,-7] # remove host_neighbourhood
+
+westwood <- westwood[,-c(1,3,4,5,11)]
+
+westwood <- westwood[,-13]
+
+westwood$room_type<-factor(westwood$room_type)
+westwood$bed_type<-factor(westwood$bed_type)
+westwood$cancellation_policy<-factor(westwood$cancellation_policy)
+westwood$host_is_superhost<-factor(westwood$host_is_superhost)
+westwood$host_has_profile_pic<-factor(westwood$host_has_profile_pic)
+westwood$host_identity_verified<-factor(westwood$host_identity_verified)
+westwood$instant_bookable<-factor(westwood$instant_bookable)
+
+head(westwood) # make sure data is cleaned
+```
+Heads up: 
+1. these variables have more than 20% NA values:
+"host_response_time"   "host_response_rate"   "review_scores_rating" "reviews_per_month"
+2. these varaibles have relatively high (10%-20%) NA values:
+"host_acceptance_rate"
+3. Variable 12) there are 13 levels (simplify? Might be too long and overwhelming in the model).
+
+
+
+### Model fitting outline
+
+```{r}
+
+full_model<-lm(price~.,data=westwood)
+plot(full_model)
+```
+```{r}
+par(mfrow=c(3,3))
+plot(price~.,data=westwood)
+```
+
+```{r}
+mmps(full_model)
+```
+
+
+1. model transformation (use all possible predictor variables)
+
+Look at diagnostic plots + Marginal Model Plot for each transformation
+1) Transform Y and keep the predictors the same (Inverse Reg + Box Cox)
+2) Keep Y and transform the predictors (Box Cox)
+3) Transform both Y and the X's (Box Cox)
+
+```{r}
+#the following code is a template, need to plug in actual values/variables 
+
+#Step 1: Transform Y
+
+#inverse regression 
+library(alr3)
+invResPlot(full_model)
+
+```
+
+The inverse response plot approach suggests that the best transformation for the response variable is log(Y). 
+
+```{r}
+#box cox
+summary(powerTransform(full_model))
+```
+
+The box-cox approach suggests that the best transformation of the response variable is Y^-0.33.
+
+```{r}
+#log(Y)
+library(dplyr)
+westwood_t1<-mutate(westwood, logprice=log(price))
+westwood_t1<-westwood_t1[,-17]
+plot(logprice~.,data=westwood_t1)
+```
+
+```{r}
+log_model<-lm(logprice~.,data=westwood_t1)
+mmps(log_model)
+```
+```{r}
+par(mfrow=c(2,2))
+plot(log_model)
+```
+
+```{r}
+#Y^-(1/3)
+westwood_t2<-mutate(westwood, tprice=price^-(1/3))
+westwood_t2<-westwood_t2[,-17]
+plot(tprice~.,data=westwood_t2)
+```
+```{r}
+par(mfrow=c(2,2))
+y2_model<-lm(tprice~.,data=westwood_t2)
+plot(y2_model)
+```
+```{r}
+mmps(y2_model)
+```
+
+
+```{r}
+#Step 2: Transform Xs
+
+summary(powerTransform(cbind(predictors)~1))
+
+#Step 3: Transform Everything
+
+summary(powerTransform(cbind(RV,predictors)~1))
+
+```
+
+```{r}
+westwood[c(164,201,216,217,225,287,331),]
+
+```
+
+```{r}
+westwood[c(4,17,39,64,86, 107, 133, 145, 153, 158, 162, 164, 165, 185, 195, 201, 214, 215, 216, 217,220, 225, 227, 231, 237, 247, 254, 276, 284, 287, 293, 311, 321, 331, 354, 381, 414, 415,420,421,422, 444, 457, 507),]
+
+which(westwood$room_type=="Hotel room")
+
+#There are 13 observations with room_type "Hotel room," 8 observations are high influential points. So we decided to remove all those observations since our research question is about Airbnbs, not hotels. 
+
+```
+
+
+2. determine model size (what variables to include)
+
+use AIC or BIC(stricter than AIC)
+
+Best Subset(more likely to suffer from overfitting) vs. Forward vs. Backward
+*those 3 disagree with each other the most when collinearity issues exist 
+
+```{r}
+#the following code is a template, need to plug in actual values/variables 
+
+library(leaps)
+bestss<-regsubsets(RV~., data=westwood,nvmax=total_num_predictors)
+summary(bestss)
+forward<-regsubsets(RV~., data=westwood,method="forward",nvmax=total_num_predictors)
+summary(forward)
+backward<-regsubsets(RV~., data=westwood,method="backward",nvmax=total_num_predictors)
+summary(backward)
+
+
+#plot bic vs. model size
+bic<-summary(bestss)$bic
+p<-length(bic)
+pplot(1:p,bic)
+lines(1:p,bic)
+```
+
+
+### Some model fitting procedures that Rita is unsure of 
+
+Cross-Validation: should we set aside 1/3 of our data and only do model fitting on the rest 2/3, so in the end we can see which model works the best on the 1/3?
+
+Kathleen note: I think we can do that, train70% ~ test30%.
+
+
+
+
