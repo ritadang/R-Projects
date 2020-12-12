@@ -1,6 +1,6 @@
 # R-Projects
 
-## Data Analysis Using Multiple Linear Regression
+## Group Project | Data Analysis Using Multiple Linear Regression
 
 As an online marketplace for homestays, Airbnb has many listings of real estate in Westwood, Los Angeles. For the visitors to Westwood and potential Airbnb hosts, understanding the characteristics that affect the price of Airbnb stays could be important in making their decisions and planning their expenses or profits. Consequently, this study focused on finding out ​what factors of the properties could and how they could significantly contribute to the differences in prices for a one-night Airbnb homestay in the neighborhood of Westwood.
 
